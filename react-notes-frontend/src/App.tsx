@@ -62,10 +62,6 @@ function App() {
           return note
         }
       })
-      return [
-        ...prevNotes,
-        { ...data, id: uuidV4(), tagIds: tags.map(tag => tag.id) },
-      ]
     })
   }
 
