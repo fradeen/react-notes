@@ -1,10 +1,8 @@
 import "bootstrap/dist/css/bootstrap.min.css"
-import { useMemo } from "react"
+import { useEffect, useMemo, useState } from "react"
 import { Container } from "react-bootstrap"
 import { Navigate, Route, Routes } from "react-router-dom"
 import { NewNote } from "./NewNote"
-import { useLocalStorage } from "./useLocalStorage"
-import { v4 as uuidV4 } from 'uuid'
 import { NoteList } from "./NoteList"
 import { NotesLayout } from "./NotesLayout"
 import { Note } from "./Note"
@@ -14,7 +12,7 @@ export type Note = {
 } & NoteData
 
 export type RawNote = {
-  id: string
+  _id: string
 } & RawNoteData
 
 export type RawNoteData = {
@@ -30,67 +28,166 @@ export type NoteData = {
 }
 
 export type Tag = {
-  id: string
+  _id: string
   label: string
 }
 
 function App() {
-  const [notes, setNotes] = useLocalStorage<RawNote[]>("NOTES", [])
-  const [tags, setTags] = useLocalStorage<Tag[]>("TAGS", [])
+  const [notes, setNotes] = useState<RawNote[]>([])
+  const [tags, setTags] = useState<Tag[]>([])
   const notesWithTags = useMemo(() => {
     return notes.map(note => {
-      return { ...note, tags: tags.filter(tag => note.tagIds.includes(tag.id)) }
+      return { ...note, tags: tags.filter(tag => note.tagIds.includes(tag._id)), id: note._id }
     })
   }, [notes, tags])
 
-  function onCreateNote({ tags, ...data }: NoteData) {
-    setNotes(prevNotes => {
-      return [
-        ...prevNotes,
-        { ...data, id: uuidV4(), tagIds: tags.map(tag => tag.id) },
-      ]
-    })
+  async function getNotes() {
+    //console.log("network request")
+    let response = await fetch(`http://localhost:5000/notes/`);
+
+    if (!response.ok) {
+      let message = `An error occurred: ${response.statusText}`;
+      window.alert(message);
+      return;
+    }
+
+    let notes = await response.json();
+    setNotes(notes);
   }
 
-  function onUpdateNote(id: string, { tags, ...data }: NoteData) {
-    setNotes(prevNotes => {
+  async function getTags() {
+    //console.log("network request for tags")
+    let response = await fetch(`http://localhost:5000/tags/`);
 
-      return prevNotes.map(note => {
-        if (note.id === id) {
-          return { ...note, ...data, tagIds: tags.map(tag => tag.id) }
-        } else {
-          return note
-        }
+    if (!response.ok) {
+      let message = `An error occurred: ${response.statusText}`;
+      window.alert(message);
+      return;
+    }
+
+    let tags = await response.json();
+    //console.log(tags)
+    setTags(tags);
+  }
+
+  useEffect(() => {
+    getNotes()
+  }, [notes.length])
+  useEffect(() => {
+    getTags()
+  }, [tags.length])
+
+  async function onCreateNote({ tags, ...data }: NoteData) {
+    try {
+      let resp = await fetch("http://localhost:5000/notes/new", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ...data, tagIds: tags.map(tag => tag._id) }),
       })
-    })
+      await getTags()
+      await getNotes()
+    } catch (error) {
+      window.alert(error);
+      return;
+    }
   }
 
-  function onDeleteNote(id: string) {
-    setNotes(prevNotes => {
-      return prevNotes.filter(note => note.id !== id)
-    })
-  }
-
-  function addTag(tag: Tag) {
-    setTags(prev => [...prev, tag])
-  }
-
-  function updateTag(id: string, label: string) {
-    setTags(prevtags => {
-      return prevtags.map(tag => {
-        if (tag.id == id) {
-          return { ...tag, label }
-        } else {
-          return tag
-        }
+  async function onUpdateNote(id: string, { tags, ...data }: NoteData) {
+    console.log(id);
+    console.log({ ...data, tagIds: tags.map(tag => tag._id), id: id })
+    try {
+      let resp = await fetch(`http://localhost:5000/notes/update`, {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ ...data, tagIds: tags.map(tag => tag._id), id: id }),
       })
-    })
+      let jsonResp = await resp.json()
+      // console.log(jsonResp)
+      await getTags()
+      await getNotes()
+    } catch (error) {
+      window.alert(error);
+      return;
+    }
   }
 
-  function deleteTag(id: string) {
-    setTags(prevTags => {
-      return prevTags.filter(tag => tag.id !== id)
-    })
+  async function onDeleteNote(id: string) {
+    //console.log(id)
+    try {
+      let resp = await fetch(`http://localhost:5000/notes/delete`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id: id }),
+      })
+      let jsonResp = await resp.json()
+      //console.log(jsonResp)
+      await getNotes()
+    } catch (error) {
+      window.alert(error);
+      return;
+    }
+
+  }
+
+  async function addTag(label: string) {
+    try {
+      let resp = await fetch("http://localhost:5000/tags/new", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ label: label }),
+      })
+      let jsonResp = await resp.json()
+      return jsonResp.insertedId;
+    } catch (error) {
+      window.alert(error);
+      return '';
+    }
+  }
+
+  async function updateTag(id: string, label: string) {
+    //console.log("in update tag");
+    //console.log(id)
+    try {
+      let resp = await fetch("http://localhost:5000/tags/update", {
+        method: "POST",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id: id, label: label }),
+      })
+      let jsonResp = await resp.json()
+      //console.log(resp)
+      await getTags()
+    } catch (error) {
+      window.alert(error);
+    }
+  }
+
+  async function deleteTag(id: string) {
+    //console.log(id)
+    try {
+      let resp = await fetch(`http://localhost:5000/tags/delete`, {
+        method: "DELETE",
+        headers: {
+          "Content-Type": "application/json",
+        },
+        body: JSON.stringify({ id: id }),
+      })
+      let jsonResp = await resp.json()
+      // console.log(jsonResp)
+      await getTags()
+    } catch (error) {
+      window.alert(error);
+      return;
+    }
   }
 
   return (

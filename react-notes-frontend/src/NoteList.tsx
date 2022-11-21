@@ -8,8 +8,8 @@ import styles from "./NotesList.module.css"
 type NoteListProp = {
     availableTags: Tag[]
     notes: SimplifiedNote[]
-    deleteTag: (id: string) => void
-    updateTag: (id: string, label: string) => void
+    deleteTag: (id: string) => Promise<void>
+    updateTag: (id: string, label: string) => Promise<void>
 }
 
 type SimplifiedNote = {
@@ -36,7 +36,7 @@ export function NoteList({ availableTags, notes, updateTag, deleteTag }: NoteLis
                     note.title.toLowerCase().includes(title.toLowerCase())) &&
                 (selectedTags.length === 0 ||
                     selectedTags.every(tag =>
-                        note.tags.some(noteTag => noteTag.id === tag.id)
+                        note.tags.some(noteTag => noteTag._id === tag._id)
                     ))
             )
         })
@@ -72,16 +72,16 @@ export function NoteList({ availableTags, notes, updateTag, deleteTag }: NoteLis
                                 value={selectedTags.map(tag => {
                                     return {
                                         label: tag.label,
-                                        value: tag.id
+                                        value: tag._id
                                     }
                                 })}
                                 onChange={tags => {
                                     setSelectedTags(tags.map(tag => {
-                                        return { label: tag.label, id: tag.value }
+                                        return { label: tag.label, _id: tag.value }
                                     }))
                                 }}
                                 options={availableTags.map(tag => {
-                                    return { label: tag.label, value: tag.id }
+                                    return { label: tag.label, value: tag._id }
                                 })}
                                 isMulti />
                         </Form.Group>
@@ -110,7 +110,7 @@ function NoteCard({ id, title, tags }: SimplifiedNote) {
                         <Stack gap={1} direction="horizontal"
                             className="justify-content-center flex-wrap">
                             {tags.map(tag => (
-                                <Badge className="text-truncate" key={tag.id}>{tag.label}</Badge>
+                                <Badge className="text-truncate" key={tag._id}>{tag.label}</Badge>
                             ))}
                         </Stack>
                     )}
@@ -131,15 +131,15 @@ function EditTagsModal({ availableTags, handleClose, show, updateTag, deleteTag 
                 <Form>
                     <Stack gap={2}>
                         {availableTags.map(tag => (
-                            <Row key={tag.id}>
+                            <Row key={tag._id}>
                                 <Col >
                                     <Form.Control type="text" value={tag.label} onChange={e => {
-                                        updateTag(tag.id, e.target.value)
+                                        updateTag(tag._id, e.target.value)
                                     }} />
                                 </Col>
                                 <Col xs="auto">
                                     <Button variant="outline-danger" onClick={e => {
-                                        deleteTag(tag.id)
+                                        deleteTag(tag._id)
                                     }} >&times;</Button>
                                 </Col>
                             </Row>
