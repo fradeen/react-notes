@@ -3,7 +3,7 @@ import { NoteForm } from "./NoteForm";
 import { useNote } from "./NotesLayout";
 type EditNoteProps = {
     onSubmit: (id: string, data: NoteData) => void
-    onAddTag: (tag: Tag) => void
+    onAddTag: (label: string) => Promise<string>
     availableTags: Tag[]
 }
 export function Editnote({ onSubmit, onAddTag, availableTags }: EditNoteProps) {
