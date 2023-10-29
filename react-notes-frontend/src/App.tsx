@@ -1,5 +1,5 @@
 import "bootstrap/dist/css/bootstrap.min.css"
-import { useEffect, useMemo, useState } from "react"
+import { Dispatch, SetStateAction, createContext, useEffect, useMemo, useState } from "react"
 import { Container } from "react-bootstrap"
 import { Navigate, Route, Routes } from "react-router-dom"
 import { NewNote } from "./NewNote"
@@ -27,14 +27,28 @@ export type NoteData = {
   tags: Tag[]
 }
 
+export type User = {
+  userName: string,
+  email: string
+}
+
 export type Tag = {
   _id: string
   label: string
 }
 
+export type userContextType = {
+  user?: User
+  setUser?: Dispatch<SetStateAction<User | undefined>>
+}
+
+export const CurrentUserContext = createContext<userContextType>({});
+
 function App() {
   const [notes, setNotes] = useState<RawNote[]>([])
   const [tags, setTags] = useState<Tag[]>([])
+  const [currentUser, setCurrentUser] = useState<User>();
+
   const notesWithTags = useMemo(() => {
     return notes.map(note => {
       return { ...note, tags: tags.filter(tag => note.tagIds.includes(tag._id)), id: note._id }
@@ -43,47 +57,70 @@ function App() {
 
   async function getNotes() {
     //console.log("network request")
-    let response = await fetch(`http://localhost:5000/notes/`);
+    let authToken = localStorage.getItem("authToken");
+    if (!authToken) return
+    try {
+      let resp = await fetch('https://localhost:5000/api/notes/', {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        },
+        credentials: "include",
+      });
+      if (resp.status !== 200)
+        throw new Error("Something went wrong");
+      let respJson = await resp.json();
+      let notes = respJson as RawNote[];
+      setNotes(notes);
 
-    if (!response.ok) {
-      let message = `An error occurred: ${response.statusText}`;
-      window.alert(message);
-      return;
+    } catch (error) {
+      window.alert(error);
     }
-
-    let notes = await response.json();
-    setNotes(notes);
   }
 
   async function getTags() {
     //console.log("network request for tags")
-    let response = await fetch(`http://localhost:5000/tags/`);
+    let authToken = localStorage.getItem("authToken");
+    if (!authToken) return
+    try {
+      let resp = await fetch('https://localhost:5000/api/tags/', {
+        method: "GET",
+        headers: {
+          "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
+        },
+        credentials: "include",
+      });
+      if (resp.status !== 200)
+        throw new Error("Something went wrong");
+      let respJson = await resp.json();
+      let tags = respJson as Tag[];
+      setTags(tags);
 
-    if (!response.ok) {
-      let message = `An error occurred: ${response.statusText}`;
-      window.alert(message);
-      return;
+    } catch (error) {
+      window.alert(error);
     }
-
-    let tags = await response.json();
-    //console.log(tags)
-    setTags(tags);
   }
 
   useEffect(() => {
     getNotes()
-  }, [notes.length])
+  }, [notes.length, currentUser])
   useEffect(() => {
     getTags()
-  }, [tags.length])
+  }, [tags.length, currentUser])
 
   async function onCreateNote({ tags, ...data }: NoteData) {
     try {
-      let resp = await fetch("http://localhost:5000/notes/new", {
+      let authToken = localStorage.getItem("authToken");
+      if (!authToken) return
+      let resp = await fetch("https://localhost:5000/api/notes/new", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
         },
+        credentials: "include",
         body: JSON.stringify({ ...data, tagIds: tags.map(tag => tag._id) }),
       })
       await getTags()
@@ -95,14 +132,18 @@ function App() {
   }
 
   async function onUpdateNote(id: string, { tags, ...data }: NoteData) {
-    console.log(id);
-    console.log({ ...data, tagIds: tags.map(tag => tag._id), id: id })
+    //console.log(id);
+    //console.log({ ...data, tagIds: tags.map(tag => tag._id), id: id })
     try {
-      let resp = await fetch(`http://localhost:5000/notes/update`, {
-        method: "POST",
+      let authToken = localStorage.getItem("authToken");
+      if (!authToken) return
+      let resp = await fetch(`https://localhost:5000/api/notes/update`, {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
         },
+        credentials: "include",
         body: JSON.stringify({ ...data, tagIds: tags.map(tag => tag._id), id: id }),
       })
       let jsonResp = await resp.json()
@@ -118,11 +159,15 @@ function App() {
   async function onDeleteNote(id: string) {
     //console.log(id)
     try {
-      let resp = await fetch(`http://localhost:5000/notes/delete`, {
+      let authToken = localStorage.getItem("authToken");
+      if (!authToken) return
+      let resp = await fetch(`https://localhost:5000/api/notes/delete`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
         },
+        credentials: "include",
         body: JSON.stringify({ id: id }),
       })
       let jsonResp = await resp.json()
@@ -137,11 +182,15 @@ function App() {
 
   async function addTag(label: string) {
     try {
-      let resp = await fetch("http://localhost:5000/tags/new", {
+      let authToken = localStorage.getItem("authToken");
+      if (!authToken) return
+      let resp = await fetch("https://localhost:5000/api/tags/new", {
         method: "POST",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
         },
+        credentials: "include",
         body: JSON.stringify({ label: label }),
       })
       let jsonResp = await resp.json()
@@ -153,18 +202,19 @@ function App() {
   }
 
   async function updateTag(id: string, label: string) {
-    //console.log("in update tag");
-    //console.log(id)
     try {
-      let resp = await fetch("http://localhost:5000/tags/update", {
-        method: "POST",
+      let authToken = localStorage.getItem("authToken");
+      if (!authToken) return
+      let resp = await fetch("https://localhost:5000/api/tags/update", {
+        method: "PUT",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
         },
+        credentials: "include",
         body: JSON.stringify({ id: id, label: label }),
       })
       let jsonResp = await resp.json()
-      //console.log(resp)
       await getTags()
     } catch (error) {
       window.alert(error);
@@ -174,11 +224,15 @@ function App() {
   async function deleteTag(id: string) {
     //console.log(id)
     try {
-      let resp = await fetch(`http://localhost:5000/tags/delete`, {
+      let authToken = localStorage.getItem("authToken");
+      if (!authToken) return
+      let resp = await fetch(`https://localhost:5000/api/tags/delete`, {
         method: "DELETE",
         headers: {
           "Content-Type": "application/json",
+          "Authorization": `Bearer ${authToken}`
         },
+        credentials: "include",
         body: JSON.stringify({ id: id }),
       })
       let jsonResp = await resp.json()
@@ -191,26 +245,28 @@ function App() {
   }
 
   return (
-    <Container className="my-4">
-      <Routes>
-        <Route path="/" element={<NoteList availableTags={tags} notes={notesWithTags}
-          deleteTag={deleteTag} updateTag={updateTag} />} />
-        <Route path="/new" element={<NewNote
-          onSubmit={onCreateNote}
-          onAddTag={addTag}
-          availableTags={tags}
-        />}
-        />
-        <Route path="/:id" element={<NotesLayout notes={notesWithTags} />} >
-          <Route index element={<Note onDeleteNote={onDeleteNote} />} />
-          <Route path="edit" element={<Editnote
-            onSubmit={onUpdateNote}
+    <CurrentUserContext.Provider value={{ user: currentUser, setUser: setCurrentUser }}>
+      <Container className="my-4">
+        <Routes>
+          <Route path="/" element={<NoteList availableTags={tags} notes={notesWithTags}
+            deleteTag={deleteTag} updateTag={updateTag} />} />
+          <Route path="/new" element={<NewNote
+            onSubmit={onCreateNote}
             onAddTag={addTag}
-            availableTags={tags} />} />
-        </Route>
-        <Route path="*" element={<Navigate to="/" />} />
-      </Routes>
-    </Container>
+            availableTags={tags}
+          />}
+          />
+          <Route path="/:id" element={<NotesLayout notes={notesWithTags} />} >
+            <Route index element={<Note onDeleteNote={onDeleteNote} />} />
+            <Route path="edit" element={<Editnote
+              onSubmit={onUpdateNote}
+              onAddTag={addTag}
+              availableTags={tags} />} />
+          </Route>
+          <Route path="*" element={<Navigate to="/" />} />
+        </Routes>
+      </Container>
+    </CurrentUserContext.Provider>
   )
 }
 

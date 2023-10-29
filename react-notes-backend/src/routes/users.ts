@@ -117,11 +117,11 @@ userAuthRoutes.post("/login",
         try {
             let ValidationErrors = validationResult(req);
             if (!ValidationErrors.isEmpty() && ValidationErrors.mapped()['email']) {
-                res.status(400).send('Invalid email address. Please try again.')
+                res.status(400).json({ "error": "Invalid email address. Please try again." })
                 return
             }
             if (!ValidationErrors.isEmpty() && ValidationErrors.mapped()['password']) {
-                res.status(400).send('Password can not be empty')
+                res.status(400).json({ "error": "Password can not be empty" })
                 return
             }
 
@@ -130,11 +130,11 @@ userAuthRoutes.post("/login",
             existingUser = await db
                 .collection<User>("users").findOne({ email: email });
             if (!existingUser) {
-                res.status(403).send('Access Denied. User doesn\'t exists')
+                res.status(403).json({ "error": "Access Denied. User doesn\'t exists" })
                 return
             }
             if (!verifyUserPass(existingUser, password)) {
-                res.status(403).send('Access Denied. Invalid credentials.')
+                res.status(403).json({ "error": "Access Denied. Invalid credentials." })
                 return
             }
 
@@ -153,7 +153,7 @@ userAuthRoutes.post("/login",
             );
 
             res
-                .cookie('refreshToken', refreshToken, { httpOnly: true, sameSite: 'strict' })
+                .cookie('refreshToken', refreshToken, { httpOnly: true, secure: true, sameSite: 'none' })
                 .header('Authorization', accessToken)
                 .status(200)
                 .json({

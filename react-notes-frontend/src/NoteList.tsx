@@ -1,9 +1,11 @@
-import { useMemo, useState, useRef } from "react";
-import { Badge, Button, Card, Col, Form, Modal, Row, Stack } from "react-bootstrap";
+import { useMemo, useState } from "react";
+import { Button, Col, Form, Row, Stack } from "react-bootstrap";
 import { Link } from "react-router-dom";
 import ReactSelect from "react-select";
 import { Tag } from "./App";
-import styles from "./NotesList.module.css"
+import { EditTagsModal } from "./EditTagsModal";
+import { LoginModal } from './LoginModal'
+import { NoteCard } from "./NoteCard";
 
 type NoteListProp = {
     availableTags: Tag[]
@@ -12,12 +14,12 @@ type NoteListProp = {
     updateTag: (id: string, label: string) => Promise<void>
 }
 
-type SimplifiedNote = {
+export type SimplifiedNote = {
     id: string
     title: string
     tags: Tag[]
 }
-type EditTagsModalProps = {
+export type EditTagsModalProps = {
     availableTags: Tag[]
     handleClose: () => void
     show: boolean
@@ -31,6 +33,7 @@ export function NoteList({ availableTags, notes, updateTag, deleteTag }: NoteLis
     const [selectedTags, setSelectedTags] = useState<Tag[]>([])
     const [title, setTitle] = useState("")
     const [editTagsModalIsOpen, setEditTagsModalIsOpen] = useState(false)
+    const [loginModalIsOpen, setLoginModalIsOpen] = useState(false)
     const [editButonsStates, setEditButonsStates] = useState<boolean[]>([])
     const filteredNotes = useMemo(() => {
         return notes.filter(note => {
@@ -57,6 +60,9 @@ export function NoteList({ availableTags, notes, updateTag, deleteTag }: NoteLis
                             setEditTagsModalIsOpen(true)
                             setEditButonsStates(Array(availableTags.length).fill(true))
                         }}>Edit Tags</Button>
+                        <Button variant="outline-secondary" onClick={() => {
+                            setLoginModalIsOpen(true)
+                        }}>Login Modal</Button>
                     </Stack>
                 </Col>
             </Row>
@@ -102,69 +108,8 @@ export function NoteList({ availableTags, notes, updateTag, deleteTag }: NoteLis
                 ))}
             </Row>
             <EditTagsModal editButonsStates={editButonsStates} setEditButonsStates={(data) => setEditButonsStates(data)} deleteTag={deleteTag} updateTag={updateTag} show={editTagsModalIsOpen} handleClose={() => { setEditTagsModalIsOpen(false) }} availableTags={availableTags} />
+            <LoginModal show={loginModalIsOpen} handleClose={() => { setLoginModalIsOpen(false) }} />
         </>
     )
 }
 
-function NoteCard({ id, title, tags }: SimplifiedNote) {
-    return (
-        <Card as={Link} to={`/${id}`} className={`h-100 text-reset text-decoration-none ${styles.card} `}>
-            <Card.Body>
-                <Stack gap={2} className="align-items-center justify-content-center h-100">
-                    <span className="fs-5">{title}</span>
-                    {tags.length > 0 && (
-                        <Stack gap={1} direction="horizontal"
-                            className="justify-content-center flex-wrap">
-                            {tags.map(tag => (
-                                <Badge className="text-truncate" key={tag._id}>{tag.label}</Badge>
-                            ))}
-                        </Stack>
-                    )}
-                </Stack>
-            </Card.Body>
-        </Card>
-    )
-}
-
-
-function EditTagsModal({ availableTags, handleClose, show, updateTag, deleteTag, editButonsStates, setEditButonsStates }: EditTagsModalProps) {
-    let editedNoteRefs = useRef<HTMLInputElement[]>([])
-    return (
-        <Modal show={show} onHide={handleClose}>
-            <Modal.Header closeButton>
-                <Modal.Title>Edit tags</Modal.Title>
-            </Modal.Header>
-            <Modal.Body>
-                <Form>
-                    <Stack gap={2}>
-                        {availableTags.map((tag, index) => (
-                            <Row key={tag._id}>
-                                <Col >
-                                    <Form.Control ref={(ref: HTMLInputElement) => editedNoteRefs.current![index] = ref}
-                                        required type="text" defaultValue={tag.label} onChange={e => {
-                                            let newEditButtonsState = [...editButonsStates]
-                                            newEditButtonsState[index] = false
-                                            setEditButonsStates(newEditButtonsState)
-                                        }} />
-                                </Col>
-                                <Col xs="auto">
-                                    <Button variant="primary" disabled={editButonsStates[index]} id={tag._id + "_save"} onClick={e => {
-                                        updateTag(tag._id, editedNoteRefs.current![index].value)
-                                        let newEditButtonsState = [...editButonsStates]
-                                        newEditButtonsState[index] = true
-                                        setEditButonsStates(newEditButtonsState)
-                                    }} >Save</Button>
-                                </Col>
-                                <Col xs="auto">
-                                    <Button variant="outline-danger" onClick={e => {
-                                        deleteTag(tag._id)
-                                    }} >&times;</Button>
-                                </Col>
-                            </Row>
-                        ))}
-                    </Stack>
-                </Form>
-            </Modal.Body>
-        </Modal>
-    )
-}
