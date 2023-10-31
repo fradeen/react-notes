@@ -61,13 +61,13 @@ let authenticateRequest = function (req: CustomReq, res: express.Response, next:
     //extract header from request; return bad request if no header is present
     let header = req.headers;
     if (!header) {
-        res.status(400).send('No header present in the request.')
+        res.status(400).json({ "error": "No header present in the request." })
         return
     }
     //extract acess token from header; deny acces if no access token is present
     let token = header.authorization!.split(' ')[1];
     if (!token) {
-        res.status(401).send('Access Denied. No access token provided.')
+        res.status(401).json({ "error": "Access Denied. No access token provided." })
         return
     }
     try {
@@ -76,9 +76,9 @@ let authenticateRequest = function (req: CustomReq, res: express.Response, next:
         //add decoded data from token into request
         req.user = decodedToken;
         next();
-    } catch {
+    } catch (error) {
         //deny access if verification of token fails.
-        res.status(403).send('Access Denied. Access token not valid.')
+        res.status(403).json({ "error": "Access Denied. Access token not valid." })
         return
     }
 
@@ -143,7 +143,7 @@ userAuthRoutes.post("/login",
             let accessToken = jwt.sign(
                 { userName: existingUser.userName, email: existingUser.email },
                 process.env.JWT_ACCESS_TOKEN_KEY!,
-                { expiresIn: "1h" }
+                { expiresIn: 60 }
             );
 
             let refreshToken = jwt.sign(
@@ -245,16 +245,15 @@ userAuthRoutes.post("/signup",
     });
 
 userAuthRoutes.post('/refresh', (req, res) => {
-    //console.log(req)
     let refreshToken = req.cookies['refreshToken'];
     if (!refreshToken) {
         res.status(401).send('Access Denied. No refresh token provided.');
+        return
     }
 
     try {
         let decodedToken = jwt.verify(refreshToken, process.env.JWT_RESRESH_TOKEN_KEY!) as UserReq;
-        let accessToken = jwt.sign({ user: decodedToken.userName }, process.env.JWT_ACCESS_TOKEN_KEY!, { expiresIn: '1h' });
-
+        let accessToken = jwt.sign({ userName: decodedToken.userName, email: decodedToken.email }, process.env.JWT_ACCESS_TOKEN_KEY!, { expiresIn: 60 });
         res
             .header('Authorization', accessToken)
             .status(201)

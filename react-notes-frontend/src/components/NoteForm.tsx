@@ -1,29 +1,56 @@
-import { FormEvent, useRef, useState } from "react"
+import { FormEvent, useContext, useRef, useState } from "react"
 import { Button, Col, Form, Row, Stack } from "react-bootstrap"
 import { Link, useNavigate } from "react-router-dom"
 import CreateableReactSelect from "react-select/creatable"
-import { NoteData, Tag } from "./App"
+import { Note, NoteData, Tag } from "../pages/NoteList"
+import { AuthContext } from "./AuthProvider"
+import { addTag } from "../api/tags"
+import { createNote, updateNote } from "../api/notes"
 
 type NoteFormProps = {
-    onSubmit: (data: NoteData) => void
-    onAddTag: (label: string) => Promise<string>
     availableTags: Tag[]
-} & Partial<NoteData>
+    isUpdate: boolean,
+} & Partial<Note>
 
-export function NoteForm({ onSubmit, onAddTag, availableTags
-    , title = "", markdown = "", tags = [] }: NoteFormProps) {
-    const titleRef = useRef<HTMLInputElement>(null)
-    const markdownRef = useRef<HTMLTextAreaElement>(null)
-    const [selectedTags, setSelectedTags] = useState<Tag[]>(tags)
-    const navigate = useNavigate()
-    function handleSubmit(e: FormEvent) {
-        e.preventDefault()
-        onSubmit({
-            title: titleRef.current!.value,
-            markdown: markdownRef.current!.value,
-            tags: selectedTags
-        })
-        navigate("/")
+export function NoteForm({ availableTags, title = "", markdown = "", tags = [], isUpdate = false, id }: NoteFormProps) {
+    let [newTitle, setNewTitle] = useState<string>(title)
+    let [newMarkdown, setNewMarkdown] = useState<string>(markdown);
+    let [selectedTags, setSelectedTags] = useState<Tag[]>(tags)
+    let navigate = useNavigate();
+    let { user, refresh } = useContext(AuthContext);
+    async function handleSubmit(e: FormEvent) {
+        try {
+            e.preventDefault();
+            let newNoteData: NoteData = {
+                title: newTitle,
+                markdown: newMarkdown,
+                tags: selectedTags
+            }
+            let success = false
+            if (id && isUpdate)
+                success = await updateNote(id, newNoteData, user!);
+            else
+                success = await createNote(newNoteData, user!)
+            navigate("/", { replace: true });
+        } catch (error: any) {
+            if (error instanceof Error) {
+                if (error.message.match("Auth token Expired, refreshing."))
+                    await refresh();
+            }
+            window.alert(error);
+        }
+    }
+
+    async function onAddTag(label: string) {
+        try {
+            return await addTag(label, user!);
+        } catch (error: any) {
+            if (error instanceof Error) {
+                if (error.message.match("Auth token Expired, refreshing."))
+                    await refresh();
+            }
+            window.alert(error);
+        }
     }
     return (
         <Form onSubmit={handleSubmit}>
@@ -32,7 +59,7 @@ export function NoteForm({ onSubmit, onAddTag, availableTags
                     <Col>
                         <Form.Group controlId="title">
                             <Form.Label>Title</Form.Label>
-                            <Form.Control ref={titleRef} required defaultValue={title} />
+                            <Form.Control value={newTitle} required onChange={(e) => { setNewTitle(e.target.value) }} />
                         </Form.Group>
                     </Col>
                     <Col>
@@ -42,7 +69,7 @@ export function NoteForm({ onSubmit, onAddTag, availableTags
                                 onCreateOption={async (label) => {
                                     let newTagId = await onAddTag(label)
                                     if (newTagId.length > 0) {
-                                        const newTag = { _id: newTagId, label: label }
+                                        let newTag = { _id: newTagId, label: label }
                                         setSelectedTags(prev => [...prev, newTag])
                                     }
                                 }}
@@ -66,7 +93,7 @@ export function NoteForm({ onSubmit, onAddTag, availableTags
                 </Row>
                 <Form.Group controlId="markdown">
                     <Form.Label>Body</Form.Label>
-                    <Form.Control ref={markdownRef} required as="textarea" rows={15} defaultValue={markdown} />
+                    <Form.Control value={newMarkdown} required as="textarea" rows={15} onChange={(e) => { setNewMarkdown(e.target.value) }} />
                 </Form.Group>
                 <Stack direction="horizontal" gap={2} className="justify-content-end">
                     <Button type="submit" variant="primary">Save</Button>

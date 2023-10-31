@@ -1,76 +1,18 @@
 import { useContext, useState } from "react";
 import { Button, Col, Form, Modal, Row, Stack } from "react-bootstrap";
-import { CurrentUserContext, User, userContextType } from "./App";
+import { useLocalStorage } from "../customHooks/useLocalStorage";
+import { AuthContext } from "./AuthProvider";
 
 type LoginModalProps = {
     show: boolean,
     handleClose: () => void
 }
 
-type LoginFormData = {
-    email: string,
-    password: string
-}
-
-let login = async function (userData: LoginFormData): Promise<User | null> {
-    try {
-        let resp = await fetch('https://localhost:5000/auth/login', {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            credentials: "include",
-            body: JSON.stringify(userData),
-        });
-        if (resp.status !== 200)
-            throw new Error("Something went wrong");
-        let authToken = resp.headers.get("authorization");
-        if (!authToken)
-            throw new Error("Something went wrong");
-        localStorage.setItem("authToken", authToken);
-        let respJson = await resp.json();
-        let user = respJson.data as User;
-        return user;
-
-    } catch (error) {
-        window.alert(error);
-        return null;
-    }
-}
-
-let refresh = async function () {
-    try {
-        let resp = await fetch('https://localhost:5000/auth/refresh', {
-            method: "POST",
-            headers: {
-                "Content-Type": "application/json",
-            },
-            credentials: "include",
-        });
-        if (resp.status !== 201)
-            throw new Error("Something went wrong");
-        let authToken = resp.headers.get("authorization");
-        if (!authToken)
-            throw new Error("Something went wrong");
-        localStorage.setItem("authToken", authToken)
-
-    } catch (error) {
-        window.alert(error);
-        return;
-    }
-}
-
 export function LoginModal({ show, handleClose }: LoginModalProps) {
     let [email, setEmail] = useState('');
     let [password, setpassword] = useState('');
     let [isLogininProgress, setIsLoginInProgress] = useState(false);
-    let userContext = useContext<userContextType>(CurrentUserContext);
-
-    let onLogin = function (user: User | null) {
-        if (!user) return
-        userContext.setUser!(user);
-        handleClose();
-    }
+    let { login } = useContext(AuthContext);
 
     return (
         <Modal show={show}
@@ -102,14 +44,14 @@ export function LoginModal({ show, handleClose }: LoginModalProps) {
                         <Row>
                             <Col >
                                 <Button type="button" variant="primary" disabled={isLogininProgress} onClick={async () => {
-                                    let user = await login({ email, password });
-                                    onLogin(user);
+                                    login({ email, password });
+                                    handleClose();
                                 }}>Login</Button>
                             </Col>
                         </Row>
                         <Row>
                             <Col >
-                                <Button type="button" variant="primary" disabled={isLogininProgress} onClick={() => refresh()}>Refresh</Button>
+                                <Button type="button" variant="primary" disabled={isLogininProgress} onClick={() => { }}>Refresh</Button>
                             </Col>
                         </Row>
                     </Stack>

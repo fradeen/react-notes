@@ -27,3 +27,4 @@ dist-ssr
 *.env
 # Web certificates
 */certificates/*
+react-notes-frontend/.vscode/launch.json

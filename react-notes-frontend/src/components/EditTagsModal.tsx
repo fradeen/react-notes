@@ -1,6 +1,16 @@
 import { useRef } from "react";
 import { Button, Col, Form, Modal, Row, Stack } from "react-bootstrap";
-import { EditTagsModalProps } from "./NoteList";
+import { Tag } from "../pages/NoteList";
+
+export type EditTagsModalProps = {
+    availableTags: Tag[]
+    handleClose: () => void
+    show: boolean
+    deleteTag: (id: string) => void
+    updateTag: (id: string, label: string) => void
+    editButonsStates: boolean[]
+    setEditButonsStates: (data: boolean[]) => void
+}
 
 export function EditTagsModal({ availableTags, handleClose, show, updateTag, deleteTag, editButonsStates, setEditButonsStates }: EditTagsModalProps) {
     let editedNoteRefs = useRef<HTMLInputElement[]>([]);
