@@ -1,6 +1,7 @@
 import { ReactNode, createContext, useEffect, useState } from "react";
 import { useLocalStorage } from "../customHooks/useLocalStorage";
-import { login, refresh } from "../api/auth";
+import { login, refresh, signUp } from "../api/auth";
+import { LoginModal } from "./LoginModal";
 export type User = {
     userName: string,
     email: string
@@ -8,10 +9,11 @@ export type User = {
 
 export type UserWithAuth = {
     authToken: string
-}
+} & User
 export type userContextType = {
     user: UserWithAuth | null,
-    login: (userData: LoginFormData) => Promise<void>
+    login: (userData: LoginFormData) => Promise<void>,
+    signUp: (userData: SignUpFormData) => Promise<void>,
     refresh: () => Promise<void>
     logOut: () => void
 }
@@ -24,9 +26,15 @@ export type LoginFormData = {
     email: string,
     password: string
 }
+export type SignUpFormData = {
+    userName: string
+} & LoginFormData
 export let AuthContext = createContext<userContextType>({
     user: null,
     login: function (userData: LoginFormData): Promise<void> {
+        throw new Error("Function not implemented.");
+    },
+    signUp: function (userData: SignUpFormData): Promise<void> {
         throw new Error("Function not implemented.");
     },
     refresh: function (): Promise<void> {
@@ -39,10 +47,16 @@ export let AuthContext = createContext<userContextType>({
 export let AuthProvider = ({ children }: contextProps) => {
     let [userString, setUserString] = useLocalStorage<string | null>("user");
     let [currentUser, setCurrentUser] = useState<UserWithAuth | null>(null);
-    let [refreshInProgress, setRefreshInProgress] = useState<boolean>(false);
+    let [loginModalIsOpen, setLoginModalIsOpen] = useState<boolean>(!userString);
     useEffect(() => {
-        if (userString) setCurrentUser(JSON.parse(userString) as UserWithAuth)
-        else setCurrentUser(null);
+        if (userString) {
+            setCurrentUser(JSON.parse(userString) as UserWithAuth);
+            setLoginModalIsOpen(false)
+        }
+        else {
+            setCurrentUser(null);
+            setLoginModalIsOpen(true)
+        }
     }, [userString]);
 
     let onLogin = async function (userData: LoginFormData) {
@@ -54,15 +68,24 @@ export let AuthProvider = ({ children }: contextProps) => {
         }
     }
 
-    let onRefresh = async function () {
+    let onSignUp = async function (userData: SignUpFormData) {
         try {
-            if (refreshInProgress) return
-            setRefreshInProgress(true);
-            let userString = await refresh(currentUser!);
+            let userString = await signUp(userData);
             setUserString(userString);
-            setRefreshInProgress(false);
         } catch (error) {
             window.alert(error);
+        }
+    }
+
+    let onRefresh = async function () {
+        console.log("inside onRefresh")
+        try {
+            if (loginModalIsOpen) return
+            let userString = await refresh(currentUser!);
+            setUserString(userString);
+        } catch (error) {
+            //window.alert(error);
+            !loginModalIsOpen && logOut();
         }
     }
 
@@ -74,12 +97,14 @@ export let AuthProvider = ({ children }: contextProps) => {
         user: currentUser,
         login: onLogin,
         refresh: onRefresh,
+        signUp: onSignUp,
         logOut: logOut
     };
 
     return (
         <AuthContext.Provider value={value}>
             {children}
+            <LoginModal show={loginModalIsOpen} handleClose={() => { }} />
         </AuthContext.Provider>
     );
 };

@@ -219,7 +219,7 @@ userAuthRoutes.post("/signup",
             let accessToken = jwt.sign(
                 { userName: newUser.userName, email: newUser.email },
                 process.env.JWT_ACCESS_TOKEN_KEY!,
-                { expiresIn: "1h" }
+                { expiresIn: 60 }
             );
 
             let refreshToken = jwt.sign(
